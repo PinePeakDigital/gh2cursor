@@ -89,10 +89,10 @@ The workflow also triggers automatically on pushes to `main` that modify:
 - `manifest.json`
 - `styles.css`
 
-The version bump type is determined from commit messages:
-- Commits starting with `breaking:`, `major:`, or `BREAKING CHANGE:` → major version
-- Commits starting with `feat:`, `feature:`, or `minor:` → minor version
-- All other commits → patch version
+The version bump type is determined from commit messages using conventional commit patterns:
+- Breaking changes (`feat!:`, `fix!:`, or `BREAKING CHANGE:` in commit body) → major version
+- New features (`feat:` or `feat(scope):`) → minor version
+- All other commits (bug fixes, docs, etc.) → patch version
 
 ## Privacy
 

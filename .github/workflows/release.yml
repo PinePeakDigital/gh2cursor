@@ -58,11 +58,21 @@ jobs:
             BUMP_TYPE="${{ github.event.inputs.version_bump }}"
           else
             # Auto-determine from commit messages
-            COMMITS=$(git log --pretty=%B $(git describe --tags --abbrev=0 2>/dev/null || git rev-list --max-parents=0 HEAD)..HEAD 2>/dev/null || git log --pretty=%B -10)
+            # Get commits since last tag, or last 10 commits if no tags exist
+            PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
 
-            if echo "$COMMITS" | grep -qiE "^(breaking|major|BREAKING CHANGE):"; then
+            if [ -z "$PREV_TAG" ]; then
+              COMMITS=$(git log --pretty=%B -10)
+            else
+              COMMITS=$(git log --pretty=%B "$PREV_TAG"..HEAD)
+            fi
+
+            # Check for conventional commit patterns
+            # Breaking changes: feat!, fix!, type! or BREAKING CHANGE in body
+            if echo "$COMMITS" | grep -qE "^[a-z]+!:|^BREAKING CHANGE:"; then
               BUMP_TYPE="major"
-            elif echo "$COMMITS" | grep -qiE "^(feat|feature|minor):"; then
+            # Features: feat: prefix
+            elif echo "$COMMITS" | grep -qE "^feat(\([^)]*\))?:"; then
               BUMP_TYPE="minor"
             else
               BUMP_TYPE="patch"
@@ -72,7 +82,7 @@ jobs:
           echo "Bump type: $BUMP_TYPE"
 
           # Calculate new version
-          case $BUMP_TYPE in
+          case "$BUMP_TYPE" in
             major)
               MAJOR=$((MAJOR + 1))
               MINOR=0
@@ -121,18 +131,23 @@ jobs:
         run: |
           PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
 
-          if [ -z "$PREV_TAG" ]; then
-            CHANGELOG="Initial release"
-          else
-            CHANGELOG=$(git log --pretty=format:"- %s" $PREV_TAG..HEAD)
-          fi
-
           # Save changelog to file
           echo "## What's Changed" > CHANGELOG.txt
           echo "" >> CHANGELOG.txt
-          echo "$CHANGELOG" >> CHANGELOG.txt
-          echo "" >> CHANGELOG.txt
-          echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/$PREV_TAG...v${{ steps.semver.outputs.version }}" >> CHANGELOG.txt
+
+          if [ -z "$PREV_TAG" ]; then
+            echo "Initial release of gh2cursor Chrome extension" >> CHANGELOG.txt
+            echo "" >> CHANGELOG.txt
+            echo "### Features" >> CHANGELOG.txt
+            echo "- One-click copy of GitHub PR feedback to clipboard" >> CHANGELOG.txt
+            echo "- Includes PR context (PR number, file path, line number, author)" >> CHANGELOG.txt
+            echo "- Seamlessly integrates with GitHub's UI" >> CHANGELOG.txt
+          else
+            CHANGELOG=$(git log --pretty=format:"- %s" "$PREV_TAG"..HEAD)
+            echo "$CHANGELOG" >> CHANGELOG.txt
+            echo "" >> CHANGELOG.txt
+            echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/$PREV_TAG...v${{ steps.semver.outputs.version }}" >> CHANGELOG.txt
+          fi
 
           cat CHANGELOG.txt
 
