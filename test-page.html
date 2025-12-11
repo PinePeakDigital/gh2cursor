@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Page - GitHub PR Comment Simulator</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #0d1117;
+            color: #c9d1d9;
+        }
+        .container {
+            background-color: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        h1 {
+            color: #58a6ff;
+        }
+        .comment {
+            background-color: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            margin: 20px 0;
+            padding: 16px;
+        }
+        .timeline-comment-actions,
+        .review-comment-actions {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+            gap: 8px;
+        }
+        .comment-body {
+            color: #c9d1d9;
+            line-height: 1.5;
+        }
+        .author {
+            color: #58a6ff;
+            font-weight: 600;
+            margin-right: 8px;
+        }
+        .note {
+            background-color: #1f6feb;
+            color: white;
+            padding: 12px;
+            border-radius: 6px;
+            margin: 20px 0;
+        }
+        .warning {
+            background-color: #da3633;
+            color: white;
+            padding: 12px;
+            border-radius: 6px;
+            margin: 20px 0;
+        }
+        .file {
+            margin: 20px 0;
+        }
+        .file-header {
+            background-color: #161b22;
+            border: 1px solid #30363d;
+            border-bottom: none;
+            border-radius: 6px 6px 0 0;
+            padding: 8px 16px;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>GitHub to Cursor Extension - Test Page</h1>
+        <div class="note">
+            <strong>Note:</strong> This is a test page to simulate GitHub PR comments. 
+            Load this extension in Chrome and navigate to this page to see the "Send to Cursor" buttons appear.
+        </div>
+        <div class="warning">
+            <strong>Important:</strong> For the extension to work on this local page, you need to:
+            <ol>
+                <li>Go to chrome://extensions/</li>
+                <li>Find the "GitHub to Cursor" extension</li>
+                <li>Click "Details"</li>
+                <li>Enable "Allow access to file URLs"</li>
+            </ol>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>Example PR Comments</h2>
+        
+        <div class="file">
+            <div class="file-header" data-path="src/components/Button.tsx">
+                src/components/Button.tsx
+            </div>
+            <div class="review-comment" data-line="45">
+                <div class="review-comment-actions">
+                    <span class="author">reviewer123</span>
+                    <span>commented</span>
+                </div>
+                <div class="comment-body">
+                    Consider using a more semantic HTML element here. Instead of a div, we should use a button element for better accessibility.
+                </div>
+            </div>
+        </div>
+
+        <div class="timeline-comment comment">
+            <div class="timeline-comment-actions">
+                <span class="author">johndoe</span>
+                <span>commented on the pull request</span>
+            </div>
+            <div class="comment-body">
+                Great work on this feature! I have a few suggestions:
+                
+                1. Add unit tests for the new component
+                2. Update the documentation
+                3. Consider edge cases for null values
+            </div>
+        </div>
+
+        <div class="file">
+            <div class="file-header" data-path="src/utils/helpers.ts">
+                src/utils/helpers.ts
+            </div>
+            <div class="review-comment" data-line="12">
+                <div class="review-comment-actions">
+                    <span class="author">codereviewer</span>
+                    <span>commented</span>
+                </div>
+                <div class="comment-body">
+                    This function could be optimized. The current implementation has O(n²) complexity. 
+                    Consider using a Map to reduce it to O(n).
+                </div>
+            </div>
+        </div>
+
+        <div class="js-comment comment">
+            <div class="timeline-comment-actions">
+                <span class="author">maintainer</span>
+                <span>commented</span>
+            </div>
+            <div class="comment-body">
+                LGTM! Once you address the comments above, this is ready to merge. 🚀
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>Instructions</h2>
+        <ol>
+            <li>After loading the extension, you should see green "Send to Cursor" buttons appear next to each comment above.</li>
+            <li>Click any "Send to Cursor" button to copy the comment to your clipboard.</li>
+            <li>A notification will appear confirming the copy.</li>
+            <li>Open Cursor and paste the formatted feedback.</li>
+        </ol>
+    </div>
+</body>
+</html>
