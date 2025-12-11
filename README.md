@@ -61,6 +61,38 @@ The extension consists of:
 - `styles.css` - Styling for buttons and notifications
 - `icons/` - Extension icons in various sizes
 
+### Releases
+
+This project uses automated semantic versioning for releases. The release workflow automatically:
+
+1. **Calculates the next version** based on commit messages or manual input
+2. **Updates manifest.json** with the new version number
+3. **Creates a packaged Chrome extension** (`.zip` file)
+4. **Generates a GitHub release** with changelog and downloadable artifact
+
+#### Manual Release
+
+To create a release manually:
+
+1. Go to **Actions** → **Release with Semantic Versioning**
+2. Click **Run workflow**
+3. Select the version bump type:
+   - `patch` - Bug fixes (1.0.0 → 1.0.1)
+   - `minor` - New features (1.0.0 → 1.1.0)
+   - `major` - Breaking changes (1.0.0 → 2.0.0)
+4. Click **Run workflow**
+
+#### Automatic Release
+
+The workflow also triggers automatically on pushes to `main` that modify:
+- `content.js`
+- `styles.css`
+
+The version bump type is determined from commit messages using conventional commit patterns:
+- Breaking changes (any commit type with `!:` such as `feat!:`, `fix!:`, `refactor!:`, or `BREAKING CHANGE:` in commit body) → major version
+- New features (`feat:` or `feat(scope):`) → minor version
+- All other commits (bug fixes, docs, etc.) → patch version
+
 ## Privacy
 
 This extension:

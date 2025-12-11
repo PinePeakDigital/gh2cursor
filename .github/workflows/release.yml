@@ -1,0 +1,217 @@
+name: Release with Semantic Versioning
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_bump:
+        description: 'Version bump type'
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+        default: 'patch'
+  push:
+    branches:
+      - main
+    paths:
+      - 'content.js'
+      - 'styles.css'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Get current version from manifest
+        id: current_version
+        run: |
+          CURRENT_VERSION=$(jq -r '.version' manifest.json)
+          echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          echo "Current version: $CURRENT_VERSION"
+
+      - name: Calculate next version
+        id: semver
+        run: |
+          CURRENT_VERSION="${{ steps.current_version.outputs.version }}"
+
+          # Parse current version
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
+
+          # Determine version bump type
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            BUMP_TYPE="${{ github.event.inputs.version_bump }}"
+          else
+            # Auto-determine from commit messages
+            # Get commits since last tag, or last 10 commits if no tags exist
+            PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+
+            if [ -z "$PREV_TAG" ]; then
+              COMMITS=$(git log --pretty=%B)
+            else
+              COMMITS=$(git log --pretty=%B "$PREV_TAG"..HEAD)
+            fi
+
+            # Check for conventional commit patterns
+            # Breaking changes: feat!, fix!, type! or BREAKING CHANGE in body
+            if echo "$COMMITS" | grep -qE "^[a-z]+(\([^)]*\))?!:|^BREAKING CHANGE:"; then
+              BUMP_TYPE="major"
+            # Features: feat: prefix
+            elif echo "$COMMITS" | grep -qE "^feat(\([^)]*\))?:"; then
+              BUMP_TYPE="minor"
+            else
+              BUMP_TYPE="patch"
+            fi
+          fi
+
+          echo "Bump type: $BUMP_TYPE"
+
+          # Calculate new version
+          case "$BUMP_TYPE" in
+            major)
+              MAJOR=$((MAJOR + 1))
+              MINOR=0
+              PATCH=0
+              ;;
+            minor)
+              MINOR=$((MINOR + 1))
+              PATCH=0
+              ;;
+            patch)
+              PATCH=$((PATCH + 1))
+              ;;
+          esac
+
+          NEW_VERSION="$MAJOR.$MINOR.$PATCH"
+          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "bump_type=$BUMP_TYPE" >> $GITHUB_OUTPUT
+          echo "New version: $NEW_VERSION"
+
+      - name: Update manifest.json version
+        run: |
+          NEW_VERSION="${{ steps.semver.outputs.version }}"
+          # Use jq for safe JSON manipulation
+          jq --arg version "$NEW_VERSION" '.version = $version' manifest.json > manifest.json.tmp
+          mv manifest.json.tmp manifest.json
+          echo "Updated version in manifest.json:"
+          jq .version manifest.json
+
+      - name: Create release package
+        run: |
+          # Create dist directory
+          mkdir -p dist
+
+          # Create a zip file with the extension
+          # NOTE: Update this list when adding new files to the extension
+          zip -r dist/gh2cursor-v${{ steps.semver.outputs.version }}.zip \
+            manifest.json \
+            content.js \
+            styles.css \
+            icons/ \
+            LICENSE \
+            README.md \
+            -x "*.git*" "*.DS_Store"
+
+          echo "Package created: dist/gh2cursor-v${{ steps.semver.outputs.version }}.zip"
+          ls -lh dist/
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+
+          # Save changelog to file
+          echo "## What's Changed" > CHANGELOG.txt
+          echo "" >> CHANGELOG.txt
+
+          if [ -z "$PREV_TAG" ]; then
+            echo "Initial release of gh2cursor Chrome extension" >> CHANGELOG.txt
+            echo "" >> CHANGELOG.txt
+            echo "### Features" >> CHANGELOG.txt
+            echo "- One-click copy of GitHub PR feedback to clipboard" >> CHANGELOG.txt
+            echo "- Includes PR context (PR number, file path, line number, author)" >> CHANGELOG.txt
+            echo "- Seamlessly integrates with GitHub's UI" >> CHANGELOG.txt
+          else
+            CHANGELOG=$(git log --pretty=format:"- %s" "$PREV_TAG"..HEAD)
+            echo "$CHANGELOG" >> CHANGELOG.txt
+            echo "" >> CHANGELOG.txt
+            echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/$PREV_TAG...v${{ steps.semver.outputs.version }}" >> CHANGELOG.txt
+          fi
+
+          cat CHANGELOG.txt
+
+      - name: Commit version bump
+        id: commit_version
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add manifest.json
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          else
+            git commit -m "chore: bump version to ${{ steps.semver.outputs.version }}"
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create and push tag
+        id: create_tag
+        run: |
+          TAG="v${{ steps.semver.outputs.version }}"
+          
+          # Check if tag already exists
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists."
+            echo "tag_exists=true" >> $GITHUB_OUTPUT
+          else
+            git tag -a "$TAG" -m "Release $TAG"
+            git push origin "$TAG"
+            echo "tag_exists=false" >> $GITHUB_OUTPUT
+          fi
+          
+          # Only push branch changes if there were commits
+          if [ "${{ steps.commit_version.outputs.has_changes }}" = "true" ]; then
+            git push origin "${{ github.ref_name }}" || { echo "Failed to push to branch ${{ github.ref_name }}"; exit 1; }
+          fi
+
+      - name: Create GitHub Release
+        if: steps.create_tag.outputs.tag_exists == 'false'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ steps.semver.outputs.version }}
+          name: Release v${{ steps.semver.outputs.version }}
+          body_path: CHANGELOG.txt
+          files: |
+            dist/gh2cursor-v${{ steps.semver.outputs.version }}.zip
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Summary
+        run: |
+          echo "## Release Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Previous Version**: ${{ steps.current_version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **New Version**: ${{ steps.semver.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Bump Type**: ${{ steps.semver.outputs.bump_type }}" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ steps.create_tag.outputs.tag_exists }}" = "true" ]; then
+            echo "- **Status**: Tag v${{ steps.semver.outputs.version }} already exists - no new release created" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- **Release**: [v${{ steps.semver.outputs.version }}](https://github.com/${{ github.repository }}/releases/tag/v${{ steps.semver.outputs.version }})" >> $GITHUB_STEP_SUMMARY
+          fi
