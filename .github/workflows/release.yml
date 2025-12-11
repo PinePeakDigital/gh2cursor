@@ -169,23 +169,27 @@ jobs:
           fi
 
       - name: Create and push tag
+        id: create_tag
         run: |
           TAG="v${{ steps.semver.outputs.version }}"
           
           # Check if tag already exists
           if git rev-parse "$TAG" >/dev/null 2>&1; then
-            echo "Tag $TAG already exists. Skipping tag creation."
+            echo "Tag $TAG already exists."
+            echo "tag_exists=true" >> $GITHUB_OUTPUT
           else
             git tag -a "$TAG" -m "Release $TAG"
             git push origin "$TAG"
+            echo "tag_exists=false" >> $GITHUB_OUTPUT
           fi
           
           # Only push branch changes if there were commits
           if [ "${{ steps.commit_version.outputs.has_changes }}" = "true" ]; then
-            git push origin ${{ github.ref_name }} || { echo "Failed to push to branch ${{ github.ref_name }}"; exit 1; }
+            git push origin "${{ github.ref_name }}" || { echo "Failed to push to branch ${{ github.ref_name }}"; exit 1; }
           fi
 
       - name: Create GitHub Release
+        if: steps.create_tag.outputs.tag_exists == 'false'
         uses: softprops/action-gh-release@v1
         with:
           tag_name: v${{ steps.semver.outputs.version }}
@@ -205,4 +209,9 @@ jobs:
           echo "- **Previous Version**: ${{ steps.current_version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
           echo "- **New Version**: ${{ steps.semver.outputs.version }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Bump Type**: ${{ steps.semver.outputs.bump_type }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Release**: [v${{ steps.semver.outputs.version }}](https://github.com/${{ github.repository }}/releases/tag/v${{ steps.semver.outputs.version }})" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ steps.create_tag.outputs.tag_exists }}" = "true" ]; then
+            echo "- **Status**: Tag v${{ steps.semver.outputs.version }} already exists - no new release created" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- **Release**: [v${{ steps.semver.outputs.version }}](https://github.com/${{ github.repository }}/releases/tag/v${{ steps.semver.outputs.version }})" >> $GITHUB_STEP_SUMMARY
+          fi
