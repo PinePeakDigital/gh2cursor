@@ -86,11 +86,10 @@ To create a release manually:
 
 The workflow also triggers automatically on pushes to `main` that modify:
 - `content.js`
-- `manifest.json`
 - `styles.css`
 
 The version bump type is determined from commit messages using conventional commit patterns:
-- Breaking changes (`feat!:`, `fix!:`, or `BREAKING CHANGE:` in commit body) → major version
+- Breaking changes (any commit type with `!:` such as `feat!:`, `fix!:`, `refactor!:`, or `BREAKING CHANGE:` in commit body) → major version
 - New features (`feat:` or `feat(scope):`) → minor version
 - All other commits (bug fixes, docs, etc.) → patch version
 

@@ -17,7 +17,6 @@ on:
       - main
     paths:
       - 'content.js'
-      - 'manifest.json'
       - 'styles.css'
 
 permissions:
@@ -41,7 +40,7 @@ jobs:
       - name: Get current version from manifest
         id: current_version
         run: |
-          CURRENT_VERSION=$(grep -o '"version": "[^"]*"' manifest.json | cut -d'"' -f4)
+          CURRENT_VERSION=$(jq -r '.version' manifest.json)
           echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
           echo "Current version: $CURRENT_VERSION"
 
@@ -62,7 +61,7 @@ jobs:
             PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
 
             if [ -z "$PREV_TAG" ]; then
-              COMMITS=$(git log --pretty=%B -10)
+              COMMITS=$(git log --pretty=%B)
             else
               COMMITS=$(git log --pretty=%B "$PREV_TAG"..HEAD)
             fi
@@ -117,6 +116,7 @@ jobs:
           mkdir -p dist
 
           # Create a zip file with the extension
+          # NOTE: Update this list when adding new files to the extension
           zip -r dist/gh2cursor-v${{ steps.semver.outputs.version }}.zip \
             manifest.json \
             content.js \
@@ -155,21 +155,35 @@ jobs:
           cat CHANGELOG.txt
 
       - name: Commit version bump
+        id: commit_version
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           git add manifest.json
           if git diff --staged --quiet; then
             echo "No changes to commit"
+            echo "has_changes=false" >> $GITHUB_OUTPUT
           else
             git commit -m "chore: bump version to ${{ steps.semver.outputs.version }}"
+            echo "has_changes=true" >> $GITHUB_OUTPUT
           fi
 
       - name: Create and push tag
         run: |
-          git tag -a "v${{ steps.semver.outputs.version }}" -m "Release v${{ steps.semver.outputs.version }}"
-          git push origin "v${{ steps.semver.outputs.version }}"
-          git push origin HEAD:${{ github.ref_name }}
+          TAG="v${{ steps.semver.outputs.version }}"
+          
+          # Check if tag already exists
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists. Skipping tag creation."
+          else
+            git tag -a "$TAG" -m "Release $TAG"
+            git push origin "$TAG"
+          fi
+          
+          # Only push branch changes if there were commits
+          if [ "${{ steps.commit_version.outputs.has_changes }}" = "true" ]; then
+            git push origin ${{ github.ref_name }} || { echo "Failed to push to branch ${{ github.ref_name }}"; exit 1; }
+          fi
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
