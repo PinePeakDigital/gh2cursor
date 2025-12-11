@@ -69,7 +69,7 @@ jobs:
 
             # Check for conventional commit patterns
             # Breaking changes: feat!, fix!, type! or BREAKING CHANGE in body
-            if echo "$COMMITS" | grep -qE "^[a-z]+!:|^BREAKING CHANGE:"; then
+            if echo "$COMMITS" | grep -qE "^[a-z]+(\([^)]*\))?!:|^BREAKING CHANGE:"; then
               BUMP_TYPE="major"
             # Features: feat: prefix
             elif echo "$COMMITS" | grep -qE "^feat(\([^)]*\))?:"; then
@@ -105,8 +105,11 @@ jobs:
       - name: Update manifest.json version
         run: |
           NEW_VERSION="${{ steps.semver.outputs.version }}"
-          sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$NEW_VERSION\"/" manifest.json
-          cat manifest.json | grep version
+          # Use jq for safe JSON manipulation
+          jq --arg version "$NEW_VERSION" '.version = $version' manifest.json > manifest.json.tmp
+          mv manifest.json.tmp manifest.json
+          echo "Updated version in manifest.json:"
+          jq .version manifest.json
 
       - name: Create release package
         run: |
@@ -156,7 +159,11 @@ jobs:
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           git add manifest.json
-          git commit -m "chore: bump version to ${{ steps.semver.outputs.version }}" || echo "No changes to commit"
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "chore: bump version to ${{ steps.semver.outputs.version }}"
+          fi
 
       - name: Create and push tag
         run: |
