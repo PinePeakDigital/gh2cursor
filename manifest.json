@@ -1,0 +1,25 @@
+{
+  "manifest_version": 3,
+  "name": "GitHub to Cursor",
+  "version": "1.0.0",
+  "description": "Adds a button to GitHub PR feedback to send comments to Cursor chat",
+  "permissions": [
+    "activeTab"
+  ],
+  "host_permissions": [
+    "https://github.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["https://github.com/*"],
+      "js": ["content.js"],
+      "css": ["styles.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}
