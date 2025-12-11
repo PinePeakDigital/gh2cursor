@@ -5,7 +5,6 @@
   'use strict';
 
   // Configuration
-  const CURSOR_PROTOCOL = 'cursor://';
   const BUTTON_CLASS = 'gh2cursor-button';
   const BUTTON_TEXT = 'Send to Cursor';
 
@@ -50,13 +49,10 @@
       context.pr = `PR #${prMatch[1]}`;
     }
 
-    // Try to find the file path
-    const fileHeader = commentElement.closest('.file')?.querySelector('.file-header');
-    if (fileHeader) {
-      const filePath = fileHeader.querySelector('[data-path]')?.getAttribute('data-path');
-      if (filePath) {
-        context.file = filePath;
-      }
+    // Try to find the file path using optional chaining
+    const filePath = commentElement.closest('.file')?.querySelector('.file-header [data-path]')?.getAttribute('data-path');
+    if (filePath) {
+      context.file = filePath;
     }
 
     // Try to find line number
@@ -209,10 +205,18 @@
       let shouldProcess = false;
       
       for (const mutation of mutations) {
-        if (mutation.addedNodes.length > 0) {
-          shouldProcess = true;
-          break;
+        // Check if any added nodes contain or are comment elements
+        for (const node of mutation.addedNodes) {
+          if (node.nodeType === Node.ELEMENT_NODE) {
+            const element = node;
+            if (element.matches('.review-comment, .timeline-comment, .js-comment') ||
+                element.querySelector('.review-comment, .timeline-comment, .js-comment')) {
+              shouldProcess = true;
+              break;
+            }
+          }
         }
+        if (shouldProcess) break;
       }
       
       if (shouldProcess) {
